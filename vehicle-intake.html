@@ -217,11 +217,11 @@
           <div class="diagram-wrap">
             <div class="side-panel">
               <div class="side-label">צד ימין</div>
-              <svg id="carDiagram-right" viewBox="0 0 620 205" xmlns="http://www.w3.org/2000/svg"></svg>
+              <svg id="carDiagram-right" viewBox="-15 -10 650 230" xmlns="http://www.w3.org/2000/svg"></svg>
             </div>
             <div class="side-panel">
               <div class="side-label">צד שמאל</div>
-              <svg id="carDiagram-left" viewBox="0 0 620 205" xmlns="http://www.w3.org/2000/svg"></svg>
+              <svg id="carDiagram-left" viewBox="-15 -10 650 230" xmlns="http://www.w3.org/2000/svg"></svg>
             </div>
           </div>
           <div class="clear-row"><button onclick="clearDamage()">נקה סימונים</button></div>
@@ -405,7 +405,7 @@ function prevStep(){ if(currentStep>1) goToStep(currentStep-1); }
 function buildSidePanelSVG(sideId, interactive){
   const svgNS = 'http://www.w3.org/2000/svg';
   const svg = document.createElementNS(svgNS,'svg');
-  svg.setAttribute('viewBox','0 0 620 205');
+  svg.setAttribute('viewBox','-15 -10 650 230');
   svg.setAttribute('xmlns',svgNS);
   if(interactive) svg.id = 'carDiagram-'+sideId;
   else { svg.style.width='320px'; svg.style.height='auto'; svg.style.display='block'; svg.style.margin='0 auto'; }
