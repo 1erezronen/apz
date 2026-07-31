@@ -707,10 +707,16 @@ function resetForm(){
 
 /* ---- PDF generation ---- */
 function svgElementToImg(svgEl, displayWidth){
+  const vb = svgEl.getAttribute('viewBox').split(' ').map(Number);
+  const vbW = vb[2], vbH = vb[3];
+  svgEl.setAttribute('width', vbW);
+  svgEl.setAttribute('height', vbH);
   const svgStr = new XMLSerializer().serializeToString(svgEl);
   const svg64 = btoa(unescape(encodeURIComponent(svgStr)));
   const img = document.createElement('img');
   img.src = 'data:image/svg+xml;base64,' + svg64;
+  img.width = displayWidth;
+  img.height = Math.round(displayWidth * vbH / vbW);
   img.style.width = displayWidth + 'px';
   img.style.height = 'auto';
   img.style.display = 'block';
