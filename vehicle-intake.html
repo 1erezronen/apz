@@ -163,7 +163,7 @@
   #reportTemplate .r-sig-box{margin-top:4px;}
   #reportTemplate .r-sig-box img{max-width:220px;max-height:90px;border:1px solid #ddd;border-radius:5px;background:#fff;}
   #reportTemplate .r-footer{margin-top:12px;font-size:10px;color:#888;border-top:1px solid #ddd;padding-top:6px;}
-  #reportTemplate #rp-diagram img{width:260px !important;height:auto;display:block;margin:0 auto;}
+  #reportTemplate #rp-diagram canvas{width:260px !important;height:auto;display:block;margin:0 auto;}
 </style>
 </head>
 <body>
@@ -478,9 +478,16 @@ function buildSidePanelSVG(sideId, interactive){
       el = document.createElementNS(svgNS,'circle');
       el.setAttribute('cx',t.cx); el.setAttribute('cy',t.cy); el.setAttribute('r',t.r);
     }
-    el.setAttribute('fill', STATE_FILL[state]);
-    el.setAttribute('stroke', STATE_STROKE[state]);
-    el.setAttribute('stroke-width', state>0?2:1.1);
+    if(t.shape==='rect'){
+      el.setAttribute('fill', STATE_FILL[state]);
+      el.setAttribute('stroke', STATE_STROKE[state]);
+      el.setAttribute('stroke-width', state>0?2:1.1);
+    } else {
+      // גלגלים: טבעת צבעונית בלבד (ללא מילוי) כדי שהצמיג הכהה יישאר נראה וברור גם כשמסומן נזק
+      el.setAttribute('fill', 'none');
+      el.setAttribute('stroke', state>0 ? STATE_STROKE[state] : 'rgba(0,0,0,0.18)');
+      el.setAttribute('stroke-width', state>0?5:1.1);
+    }
     el.classList.add('zone');
     if(interactive){
       el.style.cursor = 'pointer';
@@ -706,22 +713,32 @@ function resetForm(){
 }
 
 /* ---- PDF generation ---- */
-function svgElementToImg(svgEl, displayWidth){
+async function svgElementToCanvas(svgEl, displayWidth){
   const vb = svgEl.getAttribute('viewBox').split(' ').map(Number);
   const vbW = vb[2], vbH = vb[3];
   svgEl.setAttribute('width', vbW);
   svgEl.setAttribute('height', vbH);
   const svgStr = new XMLSerializer().serializeToString(svgEl);
   const svg64 = btoa(unescape(encodeURIComponent(svgStr)));
-  const img = document.createElement('img');
-  img.src = 'data:image/svg+xml;base64,' + svg64;
-  img.width = displayWidth;
-  img.height = Math.round(displayWidth * vbH / vbW);
-  img.style.width = displayWidth + 'px';
-  img.style.height = 'auto';
-  img.style.display = 'block';
-  img.style.margin = '0 auto';
-  return img;
+  const svgImg = new Image();
+  svgImg.src = 'data:image/svg+xml;base64,' + svg64;
+  await svgImg.decode();
+
+  // רסטור SVG -> canvas חי (לא img!) - זהו הנתיב היחיד שבדיקה חוזרת הראתה כאמין
+  // מול html2canvas; המרה ל-img דרך data URI גרמה לאובדן חלק מהתוכן בצורה לא עקבית.
+  const outH = Math.round(displayWidth * vbH / vbW);
+  const canvas = document.createElement('canvas');
+  canvas.width = displayWidth;
+  canvas.height = outH;
+  canvas.style.width = displayWidth + 'px';
+  canvas.style.height = 'auto';
+  canvas.style.display = 'block';
+  canvas.style.margin = '0 auto';
+  const ctx = canvas.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.drawImage(svgImg, 0, 0, canvas.width, canvas.height);
+  return canvas;
 }
 async function generatePDFBlob(record){
   document.getElementById('rp-date').textContent = 'תאריך: ' + new Date(record.createdAt).toLocaleString('he-IL');
@@ -738,10 +755,10 @@ async function generatePDFBlob(record){
     label.style.cssText = 'font-size:11px;color:#666;text-align:center;margin:4px 0 2px;font-weight:600;';
     label.textContent = side.label;
     diagramHolder.appendChild(label);
+
     const svgEl = buildSidePanelSVG(side.id, false);
-    const img = svgElementToImg(svgEl, 260);
-    diagramHolder.appendChild(img);
-    try{ await img.decode(); }catch(e){ /* ignore, still proceed */ }
+    const canvasEl = await svgElementToCanvas(svgEl, 260);
+    diagramHolder.appendChild(canvasEl);
   }
 
   const damaged = ZONES.filter(z => (record.damage[z.id]||0) > 0);
@@ -780,8 +797,8 @@ async function generatePDFBlob(record){
     drawW = drawH / imgRatio;
   }
   const x = margin + (availW - drawW) / 2;
-  const imgData = canvas.toDataURL('image/jpeg',0.85);
-  pdf.addImage(imgData,'JPEG', x, margin, drawW, drawH);
+  const imgData = canvas.toDataURL('image/png');
+  pdf.addImage(imgData,'PNG', x, margin, drawW, drawH);
   return pdf.output('blob');
 }
 
